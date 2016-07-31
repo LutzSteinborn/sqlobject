@@ -7,16 +7,6 @@ News
 
 .. _start:
 
-SQLObject 3.2.0 (master)
-========================
-
-Features
---------
-
-* Add JsonbCol.
-psycopg2 >= 2.5.4 and postgresql >= 9.2 is needed
-only postgresql is supported
-
 SQLObject 3.1.0 (master)
 ========================
 
@@ -25,11 +15,23 @@ Features
 
 * Add UuidCol.
 
+* Add JsonbCol. Only for PostgreSQL.
+  Requires psycopg2 >= 2.5.4 and PostgreSQL >= 9.2.
+
+* Add JSONCol, a universal json column.
+
+Source code
+-----------
+
+* Fix all `import *` using https://github.com/zestyping/star-destroyer.
+
 Documentation
 -------------
 
 * Developer's Guide extended to explain SQLObject architecture and how
   to create a new column type.
+
+* Fix URLs that can be found; remove missing links.
 
 SQLObject 3.0.0
 ===============

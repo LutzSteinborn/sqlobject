@@ -21,13 +21,13 @@ are what gets used.
 from array import array
 from decimal import Decimal
 from itertools import count
-import time
-from uuid import UUID
 import json
 try:
     import cPickle as pickle
 except ImportError:
     import pickle
+import time
+from uuid import UUID
 import weakref
 
 from formencode import compound, validators
@@ -687,6 +687,7 @@ class UnicodeCol(Col):
     baseClass = SOUnicodeCol
 
 
+<<<<<<< HEAD
 class UuidValidator(SOValidator):
 
     def to_python(self, value, state):
@@ -1933,6 +1934,110 @@ class SOPickleCol(SOBLOBCol):
 
 class PickleCol(BLOBCol):
     baseClass = SOPickleCol
+
+
+class UuidValidator(SOValidator):
+
+    def to_python(self, value, state):
+        if value is None:
+            return None
+        if isinstance(value, str):
+            return UUID(value)
+        raise validators.Invalid(
+            "expected string in the UuidCol '%s', "
+            "got %s %r instead" % (
+                self.name, type(value), value), value, state)
+
+    def from_python(self, value, state):
+        if value is None:
+            return None
+        if isinstance(value, UUID):
+            return str(value)
+        raise validators.Invalid(
+            "expected uuid in the UuidCol '%s', "
+            "got %s %r instead" % (
+                self.name, type(value), value), value, state)
+
+
+class SOUuidCol(SOCol):
+    def createValidators(self):
+        return [UuidValidator(name=self.name)] + \
+            super(SOUuidCol, self).createValidators()
+
+    def _sqlType(self):
+        return 'VARCHAR(36)'
+
+    def _postgresType(self):
+        return 'UUID'
+
+
+class UuidCol(Col):
+    baseClass = SOUuidCol
+
+
+class JsonbValidator(SOValidator):
+
+    def to_python(self, value, state):
+        return value
+
+    def from_python(self, value, state):
+        if value is None:
+            return json.dumps(None)
+        if isinstance(value, (dict, list, unicode, int, long, float, bool)):
+            return json.dumps(value)
+        raise validators.Invalid(
+            "expect one of the following types "
+            "(dict, list, unicode, int, long, float, bool) for '%s', "
+            "got %s %r instead" % (
+                self.name, type(value), value), value, state)
+
+
+class SOJsonbCol(SOCol):
+    def createValidators(self):
+        return [JsonbValidator(name=self.name)] + \
+            super(SOJsonbCol, self).createValidators()
+
+    def _postgresType(self):
+        return 'JSONB'
+
+
+class JsonbCol(Col):
+    baseClass = SOJsonbCol
+
+
+class JSONValidator(StringValidator):
+
+    def to_python(self, value, state):
+        if value is None:
+            return None
+        if isinstance(value, string_type):
+            return json.loads(value)
+        raise validators.Invalid(
+            "expected a JSON str in the JSONCol '%s', "
+            "got %s %r instead" % (
+                self.name, type(value), value), value, state)
+
+    def from_python(self, value, state):
+        if value is None:
+            return None
+        if isinstance(value,
+                      (bool, int, float, long, dict, list, string_type)):
+            return json.dumps(value)
+        raise validators.Invalid(
+            "expected an object suitable for JSON in the JSONCol '%s', "
+            "got %s %r instead" % (
+                self.name, type(value), value), value, state)
+
+
+class SOJSONCol(SOStringCol):
+
+    def createValidators(self):
+        return [JSONValidator(name=self.name)] + \
+            super(SOJSONCol, self).createValidators()
+
+
+class JSONCol(StringCol):
+    baseClass = SOJSONCol
 
 
 def pushKey(kw, name, value):
