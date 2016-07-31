@@ -735,7 +735,7 @@ class JsonbValidator(SOValidator):
         if value is None:
             return json.dumps(None)
         if isinstance(value, (dict, list, unicode, int, long, float, bool)):
-             return json.dumps(value)
+            return json.dumps(value)
         raise validators.Invalid(
             "expect one of the following types (dict, list, unicode, int, long, float, bool) for '%s', "
             "got %s %r instead" % (
