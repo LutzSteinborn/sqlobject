@@ -1,5 +1,5 @@
 import pickle
-import py.test
+import pytest
 from sqlobject import IntCol, SQLObject, StringCol
 from sqlobject.tests.dbtest import getConnection, raises, setupClass
 
@@ -9,7 +9,7 @@ from sqlobject.tests.dbtest import getConnection, raises, setupClass
 ########################################
 
 
-class TestPickle(SQLObject):
+class SOTestPickle(SQLObject):
     question = StringCol()
     answer = IntCol()
 
@@ -19,23 +19,23 @@ test_answer = 42
 
 
 def test_pickleCol():
-    setupClass(TestPickle)
-    connection = TestPickle._connection
-    test = TestPickle(question=test_question, answer=test_answer)
+    setupClass(SOTestPickle)
+    connection = SOTestPickle._connection
+    test = SOTestPickle(question=test_question, answer=test_answer)
 
     pickle_data = pickle.dumps(test, pickle.HIGHEST_PROTOCOL)
     connection.cache.clear()
     test = pickle.loads(pickle_data)
-    test2 = connection.cache.tryGet(test.id, TestPickle)
+    test2 = connection.cache.tryGet(test.id, SOTestPickle)
 
     assert test2 is test
     assert test.question == test_question
     assert test.answer == test_answer
 
     if (connection.dbName == 'sqlite') and connection._memory:
-        py.test.skip("The following test requires a different connection")
+        pytest.skip("The following test requires a different connection")
 
-    test = TestPickle.get(
+    test = SOTestPickle.get(
         test.id,
         # make a different DB URI and open another connection
         connection=getConnection(registry=''))

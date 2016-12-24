@@ -1,5 +1,5 @@
 from datetime import datetime, date, time
-import py.test
+import pytest
 
 from sqlobject import SQLObject
 from sqlobject import col
@@ -51,7 +51,7 @@ def test_microseconds():
     connection = getConnection()
     if hasattr(connection, 'can_use_microseconds') and \
             not connection.can_use_microseconds():
-        py.test.skip(
+        pytest.skip(
             "The database doesn't support microseconds; "
             "microseconds are supported by MariaDB since version 5.3.0, "
             "by MySQL since version 5.6.4, "
@@ -85,11 +85,17 @@ if mxdatetime_available:
     from mx.DateTime import now, Time
 
     dateFormat = None  # use default
-    connection = getConnection()
-    if connection.dbName == "sqlite":
-        if connection.using_sqlite2:
-            # mxDateTime sends and PySQLite2 returns full date/time for dates
-            dateFormat = "%Y-%m-%d %H:%M:%S.%f"
+    try:
+        connection = getConnection()
+    except AttributeError:
+        # The module was imported during documentation building
+        pass
+    else:
+        if connection.dbName == "sqlite":
+            if connection.using_sqlite2:
+                # mxDateTime sends and PySQLite2 returns
+                # full date/time for dates
+                dateFormat = "%Y-%m-%d %H:%M:%S.%f"
 
     class DateTime2(SQLObject):
         col1 = DateTimeCol()

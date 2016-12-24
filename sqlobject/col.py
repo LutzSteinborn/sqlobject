@@ -599,8 +599,14 @@ class StringValidator(SOValidator):
             return value
         if hasattr(value, '__unicode__'):
             return unicode(value).encode(dbEncoding)
-        if dbName == 'mysql' and not PY2 and isinstance(value, bytes):
-            return value.decode('ascii', errors='surrogateescape')
+        if dbName == 'mysql':
+            if isinstance(value, bytearray):
+                if PY2:
+                    return bytes(value)
+                else:
+                    return value.decode(dbEncoding, errors='surrogateescape')
+            if not PY2 and isinstance(value, bytes):
+                return value.decode('ascii', errors='surrogateescape')
         raise validators.Invalid(
             "expected a str in the StringCol '%s', got %s %r instead" % (
                 self.name, type(value), value), value, state)
@@ -1372,6 +1378,13 @@ if mxdatetime_available:
                 return DateTime.Date(value.year, value.month, value.day)
             elif isinstance(value, datetime.time):
                 return DateTime.Time(value.hour, value.minute, value.second)
+            elif isinstance(value, datetime.timedelta):
+                if value.days:
+                    raise validators.Invalid(
+                        "the value for the TimeCol '%s' must has days=0, "
+                        "it has days=%d" % (self.name, value.days),
+                        value, state)
+                return DateTime.Time(seconds=value.seconds)
             try:
                 if self.format.find(".%f") >= 0:
                     if '.' in value:
@@ -1897,7 +1910,10 @@ class PickleValidator(BinaryValidator):
             return None
         if isinstance(value, unicode_type):
             dbEncoding = self.getDbEncoding(state, default='ascii')
-            value = value.encode(dbEncoding)
+            if PY2:
+                value = value.encode(dbEncoding)
+            else:
+                value = value.encode(dbEncoding, errors='surrogateescape')
         if isinstance(value, bytes):
             return pickle.loads(value)
         raise validators.Invalid(
@@ -1941,8 +1957,12 @@ class UuidValidator(SOValidator):
     def to_python(self, value, state):
         if value is None:
             return None
+        if PY2 and isinstance(value, unicode):
+            value = value.encode('ascii')
         if isinstance(value, str):
             return UUID(value)
+        if isinstance(value, UUID):
+            return value
         raise validators.Invalid(
             "expected string in the UuidCol '%s', "
             "got %s %r instead" % (

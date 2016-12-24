@@ -1,14 +1,8 @@
-"""
-This module is used by py.test to configure testing for this
-application.
-"""
-
-import py
-import sqlobject
+"""This module is used by pytest to configure testing"""
 
 try:
     import pkg_resources
-except ImportError:  # Python 2.2
+except ImportError:
     pass
 else:
     pkg_resources.require('SQLObject')
@@ -63,16 +57,6 @@ def pytest_configure(config):
     """Make cmdline arguments available to dbtest"""
     global option
     option = config.option
-
-
-class SQLObjectClass(py.test.collect.Class):
-    def run(self):
-        if (isinstance(self.obj, type) and
-                issubclass(self.obj, sqlobject.SQLObject)):
-            return []
-        return super(SQLObjectClass, self).run()
-
-Class = SQLObjectClass
 
 
 def setup_tests():

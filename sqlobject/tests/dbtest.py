@@ -6,7 +6,7 @@ from __future__ import print_function
 import logging
 import os
 import sys
-from py.test import raises, skip
+from pytest import raises, skip
 import sqlobject
 import sqlobject.conftest as conftest
 
@@ -29,7 +29,7 @@ and you can use it like::
 
     def test_featureX():
         if not supports('featureX'):
-            py.test.skip("Doesn't support featureX")
+            pytest.skip("Doesn't support featureX")
 """
 supportsMatrix = {
     '+exceptions': 'mysql postgres sqlite',
@@ -114,7 +114,9 @@ try:
     connection = getConnection()
 except Exception as e:
     # At least this module should be importable...
-    print("Could not open database: %s" % e, file=sys.stderr)
+    # The module was imported during documentation building
+    if 'sphinx' not in sys.modules:
+        print("Could not open database: %s" % e, file=sys.stderr)
 
 
 class InstalledTestDatabase(sqlobject.SQLObject):

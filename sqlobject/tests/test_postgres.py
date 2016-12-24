@@ -1,4 +1,4 @@
-import py.test
+import pytest
 from sqlobject import SQLObject, StringCol
 from sqlobject.tests.dbtest import getConnection, setupClass
 
@@ -8,23 +8,23 @@ from sqlobject.tests.dbtest import getConnection, setupClass
 ########################################
 
 
-class TestSSLMode(SQLObject):
+class SOTestSSLMode(SQLObject):
     test = StringCol()
 
 
 def test_sslmode():
-    setupClass(TestSSLMode)
-    connection = TestSSLMode._connection
+    setupClass(SOTestSSLMode)
+    connection = SOTestSSLMode._connection
     if (connection.dbName != 'postgres') or \
             (not connection.module.__name__.startswith('psycopg')):
-        py.test.skip("The test requires PostgreSQL, psycopg and ssl mode")
+        pytest.skip("The test requires PostgreSQL, psycopg and ssl mode")
 
     connection = getConnection(sslmode='require')
-    TestSSLMode._connection = connection
-    test = TestSSLMode(test='test')  # Connect to the DB to test sslmode
+    SOTestSSLMode._connection = connection
+    test = SOTestSSLMode(test='test')  # Connect to the DB to test sslmode
 
     connection.cache.clear()
-    test = TestSSLMode.select()[0]
+    test = SOTestSSLMode.select()[0]
     assert test.test == 'test'
 
 
@@ -33,20 +33,20 @@ def test_sslmode():
 ########################################
 
 
-class TestSOList(SQLObject):
+class SOTestSOList(SQLObject):
     pass
 
 
 def test_list_databases():
     connection = getConnection()
     if connection.dbName != "postgres":
-        py.test.skip("These tests require PostgreSQL")
+        pytest.skip("These tests require PostgreSQL")
     assert connection.db in connection.listDatabases()
 
 
 def test_list_tables():
     connection = getConnection()
     if connection.dbName != "postgres":
-        py.test.skip("These tests require PostgreSQL")
-    setupClass(TestSOList)
-    assert TestSOList.sqlmeta.table in connection.listTables()
+        pytest.skip("These tests require PostgreSQL")
+    setupClass(SOTestSOList)
+    assert SOTestSOList.sqlmeta.table in connection.listTables()

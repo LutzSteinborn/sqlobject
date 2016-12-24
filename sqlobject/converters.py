@@ -101,6 +101,7 @@ if PY2:
     registerConverter(unicode, StringLikeConverter)  # noqa
 registerConverter(array, StringLikeConverter)
 if PY2:
+    registerConverter(bytearray, StringLikeConverter)
     registerConverter(buffer_type, StringLikeConverter)
 else:
     registerConverter(memoryview, StringLikeConverter)

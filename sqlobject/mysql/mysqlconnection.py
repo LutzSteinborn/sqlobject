@@ -21,10 +21,64 @@ class MySQLConnection(DBAPI):
     schemes = [dbName]
 
     def __init__(self, db, user, password='', host='localhost', port=0, **kw):
-        import MySQLdb, MySQLdb.constants.CR, MySQLdb.constants.ER  # noqa
-        self.module = MySQLdb
+        drivers = kw.pop('driver', None) or 'mysqldb'
+        for driver in drivers.split(','):
+            driver = driver.strip()
+            if not driver:
+                continue
+            try:
+                if driver.lower() in ('mysqldb', 'pymysql'):
+                    if driver.lower() == 'pymysql':
+                        import pymysql
+                        pymysql.install_as_MySQLdb()
+                    import MySQLdb
+                    if driver.lower() == 'mysqldb':
+                        if MySQLdb.version_info[:3] < (1, 2, 2):
+                            raise ValueError(
+                                'SQLObject requires MySQLdb 1.2.2 or later')
+                    import MySQLdb.constants.CR
+                    import MySQLdb.constants.ER
+                    self.module = MySQLdb
+                    if driver.lower() == 'mysqldb':
+                        self.CR_SERVER_GONE_ERROR = \
+                            MySQLdb.constants.CR.SERVER_GONE_ERROR
+                        self.CR_SERVER_LOST = \
+                            MySQLdb.constants.CR.SERVER_LOST
+                    else:
+                        self.CR_SERVER_GONE_ERROR = \
+                            MySQLdb.constants.CR.CR_SERVER_GONE_ERROR
+                        self.CR_SERVER_LOST = \
+                            MySQLdb.constants.CR.CR_SERVER_LOST
+                    self.ER_DUP_ENTRY = MySQLdb.constants.ER.DUP_ENTRY
+                elif driver == 'connector':
+                    import mysql.connector
+                    self.module = mysql.connector
+                    self.CR_SERVER_GONE_ERROR = \
+                        mysql.connector.errorcode.CR_SERVER_GONE_ERROR
+                    self.CR_SERVER_LOST = \
+                        mysql.connector.errorcode.CR_SERVER_LOST
+                    self.ER_DUP_ENTRY = mysql.connector.errorcode.ER_DUP_ENTRY
+                elif driver == 'oursql':
+                    import oursql
+                    self.module = oursql
+                    self.CR_SERVER_GONE_ERROR = \
+                        oursql.errnos['CR_SERVER_GONE_ERROR']
+                    self.CR_SERVER_LOST = oursql.errnos['CR_SERVER_LOST']
+                    self.ER_DUP_ENTRY = oursql.errnos['ER_DUP_ENTRY']
+                else:
+                    raise ValueError(
+                        'Unknown MySQL driver "%s", '
+                        'expected mysqldb, connector, '
+                        'oursql or pymysql' % driver)
+            except ImportError:
+                pass
+            else:
+                break
+        else:
+            raise ImportError(
+                'Cannot find a MySQL driver, tried %s' % drivers)
         self.host = host
-        self.port = port
+        self.port = port or 3306
         self.db = db
         self.user = user
         self.password = password
@@ -49,12 +103,9 @@ class MySQLConnection(DBAPI):
 
         global mysql_Bin
         if not PY2 and mysql_Bin is None:
-            mysql_Bin = MySQLdb.Binary
-            MySQLdb.Binary = lambda x: mysql_Bin(x).decode(
+            mysql_Bin = self.module.Binary
+            self.module.Binary = lambda x: mysql_Bin(x).decode(
                 'ascii', errors='surrogateescape')
-
-        if self.module.version_info[:3] < (1, 2, 2):
-            raise ValueError('SQLObject requires MySQLdb 1.2.2 or later')
 
         self._server_version = None
         self._can_use_microseconds = None
@@ -64,22 +115,25 @@ class MySQLConnection(DBAPI):
     def _connectionFromParams(cls, user, password, host, port, path, args):
         return cls(db=path.strip('/'),
                    user=user or '', password=password or '',
-                   host=host or 'localhost', port=port or 0, **args)
+                   host=host or 'localhost', port=port, **args)
 
     def makeConnection(self):
         dbEncoding = self.dbEncoding
         if dbEncoding:
-            from MySQLdb.connections import Connection
-            if not hasattr(Connection, 'set_character_set'):
-                # monkeypatch pre MySQLdb 1.2.1
-                def character_set_name(self):
-                    return dbEncoding + '_' + dbEncoding
-                Connection.character_set_name = character_set_name
+            if self.module.__name__ == 'MySQLdb':
+                from MySQLdb.connections import Connection
+                if not hasattr(Connection, 'set_character_set'):
+                    # monkeypatch pre MySQLdb 1.2.1
+                    def character_set_name(self):
+                        return dbEncoding + '_' + dbEncoding
+                    Connection.character_set_name = character_set_name
+        if self.module.__name__ == 'mysql.connector':
+            self.kw['consume_results'] = True
         try:
             conn = self.module.connect(
                 host=self.host, port=self.port, db=self.db,
                 user=self.user, passwd=self.password, **self.kw)
-            if self.module.version_info[:3] >= (1, 2, 2):
+            if self.module.__name__ != 'oursql':
                 # Attempt to reconnect. This setting is persistent.
                 conn.ping(True)
         except self.module.OperationalError as e:
@@ -88,10 +142,9 @@ class MySQLConnection(DBAPI):
                         "db=%(db)s, user=%(user)s" % self.__dict__)
             raise dberrors.OperationalError(ErrorMessage(e, conninfo))
 
-        if hasattr(conn, 'autocommit'):
-            conn.autocommit(bool(self.autoCommit))
+        self._setAutoCommit(conn, bool(self.autoCommit))
 
-        if dbEncoding:
+        if dbEncoding and self.module.__name__ == 'MySQLdb':
             if hasattr(conn, 'set_character_set'):  # MySQLdb 1.2.1 and later
                 conn.set_character_set(dbEncoding)
             else:  # pre MySQLdb 1.2.1
@@ -102,7 +155,11 @@ class MySQLConnection(DBAPI):
 
     def _setAutoCommit(self, conn, auto):
         if hasattr(conn, 'autocommit'):
-            conn.autocommit(auto)
+            try:
+                conn.autocommit(auto)
+            except TypeError:
+                # mysql-connector has autocommit as a property
+                conn.autocommit = auto
 
     def _executeRetry(self, conn, cursor, query):
         # When a server connection is lost and a query is attempted, most of
@@ -121,8 +178,8 @@ class MySQLConnection(DBAPI):
             try:
                 return cursor.execute(query)
             except self.module.OperationalError as e:
-                if e.args[0] in (self.module.constants.CR.SERVER_GONE_ERROR,
-                                 self.module.constants.CR.SERVER_LOST):
+                if e.args[0] in (self.CR_SERVER_GONE_ERROR,
+                                 self.CR_SERVER_LOST):
                     if count == 2:
                         raise dberrors.OperationalError(ErrorMessage(e))
                     if self.debug:
@@ -131,14 +188,15 @@ class MySQLConnection(DBAPI):
                     raise dberrors.OperationalError(ErrorMessage(e))
             except self.module.IntegrityError as e:
                 msg = ErrorMessage(e)
-                if e.args[0] == self.module.constants.ER.DUP_ENTRY:
+                if e.args[0] == self.ER_DUP_ENTRY:
                     raise dberrors.DuplicateEntryError(msg)
                 else:
                     raise dberrors.IntegrityError(msg)
             except self.module.InternalError as e:
                 raise dberrors.InternalError(ErrorMessage(e))
             except self.module.ProgrammingError as e:
-                raise dberrors.ProgrammingError(ErrorMessage(e))
+                if e.args[0] is not None:
+                    raise dberrors.ProgrammingError(ErrorMessage(e))
             except self.module.DataError as e:
                 raise dberrors.DataError(ErrorMessage(e))
             except self.module.NotSupportedError as e:

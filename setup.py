@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import sys
 from imp import load_source
 from os.path import abspath, dirname, join
 
@@ -16,7 +17,7 @@ versionpath = join(abspath(dirname(__file__)), "sqlobject", "__version__.py")
 load_source("sqlobject_version", versionpath)
 from sqlobject_version import version  # noqa: ignore flake8 E402
 
-subpackages = ['firebird', 'include',
+subpackages = ['firebird', 'include', 'include.tests',
                'inheritance', 'inheritance.tests',
                'manager', 'maxdb', 'mysql', 'mssql', 'postgres', 'rdbhost',
                'sqlite', 'sybase', 'tests', 'util',
@@ -28,7 +29,15 @@ if is_setuptools:
     [paste.filter_app_factory]
     main = sqlobject.wsgi_middleware:make_middleware
     """
-    kw['install_requires'] = ["FormEncode>=1.1.1", "PyDispatcher>=2.0.4"]
+    install_requires = []
+    if (sys.version_info[0] == 2) and (sys.version_info[:2] >= (2, 6)):
+        install_requires.append("FormEncode>=1.1.1,!=1.3.0")
+    elif (sys.version_info[0] == 3) and (sys.version_info[:2] >= (3, 4)):
+        install_requires.append("FormEncode>=1.3.1")
+    else:
+        raise ImportError("SQLObject requires Python 2.6, 2.7 or 3.4+")
+    install_requires.append("PyDispatcher>=2.0.4")
+    kw['install_requires'] = install_requires
     kw['extras_require'] = {
         'mysql': ['MySQLdb'],
         'postgresql': ['psycopg'],  # or pgdb from PyGreSQL
@@ -62,7 +71,7 @@ and `GitHub <https://github.com/sqlobject>`_.
   :target: https://travis-ci.org/sqlobject/sqlobject
 """,
       classifiers=[
-          "Development Status :: 5 - Production/Stable",
+          "Development Status :: 2 - Pre-Alpha",
           "Intended Audience :: Developers",
           "License :: OSI Approved :: "
           "GNU Library or Lesser General Public License (LGPL)",
@@ -72,6 +81,7 @@ and `GitHub <https://github.com/sqlobject>`_.
           "Programming Language :: Python :: 2.7",
           "Programming Language :: Python :: 3",
           "Programming Language :: Python :: 3.4",
+          "Programming Language :: Python :: 3.5",
           "Topic :: Database",
           "Topic :: Database :: Front-Ends",
           "Topic :: Software Development :: Libraries :: Python Modules",
@@ -81,32 +91,46 @@ and `GitHub <https://github.com/sqlobject>`_.
       maintainer="Oleg Broytman",
       maintainer_email="phd@phdru.name",
       url="http://sqlobject.org/devel/",
-      download_url="https://pypi.python.org/pypi/SQLObject/%s" % version,
+      download_url="https://pypi.python.org/pypi/SQLObject/%s.dev20160816" %
+          version,
       license="LGPL",
       packages=["sqlobject"] +
           ['sqlobject.%s' % package for package in subpackages],
       scripts=["scripts/sqlobject-admin", "scripts/sqlobject-convertOldURI"],
       package_data={"sqlobject":
                     [
-                        "../docs/LICENSE", "../docs/*.txt", "../docs/*.css",
-                        "../docs/html/*.html", "../docs/html/*.css",
-                        "../docs/html/sqlobject/*.html",
-                        "../docs/html/sqlobject/firebird/*.html",
-                        "../docs/html/sqlobject/include/*.html",
-                        "../docs/html/sqlobject/inheritance/*.html",
-                        "../docs/html/sqlobject/manager/*.html",
-                        "../docs/html/sqlobject/maxdb/*.html",
-                        "../docs/html/sqlobject/mssql/*.html",
-                        "../docs/html/sqlobject/mysql/*.html",
-                        "../docs/html/sqlobject/postgres/*.html",
-                        "../docs/html/sqlobject/rdbhost/*.html",
-                        "../docs/html/sqlobject/sqlite/*.html",
-                        "../docs/html/sqlobject/sybase/*.html",
-                        "../docs/html/sqlobject/util/*.html",
-                        "../docs/html/sqlobject/versioning/*.html",
+                        "../LICENSE",
+                        "../docs/*.rst",
+                        "../docs/html/*",
+                        "../docs/html/_sources/*",
+                        "../docs/html/_sources/api/*",
+                        "../docs/html/_modules/*",
+                        "../docs/html/_modules/sqlobject/*",
+                        "../docs/html/_modules/sqlobject/mysql/*",
+                        "../docs/html/_modules/sqlobject/postgres/*",
+                        "../docs/html/_modules/sqlobject/manager/*",
+                        "../docs/html/_modules/sqlobject/inheritance/*",
+                        "../docs/html/_modules/sqlobject/inheritance/tests/*",
+                        "../docs/html/_modules/sqlobject/mssql/*",
+                        "../docs/html/_modules/sqlobject/tests/*",
+                        "../docs/html/_modules/sqlobject/rdbhost/*",
+                        "../docs/html/_modules/sqlobject/versioning/*",
+                        "../docs/html/_modules/sqlobject/versioning/test/*",
+                        "../docs/html/_modules/sqlobject/util/*",
+                        "../docs/html/_modules/sqlobject/maxdb/*",
+                        "../docs/html/_modules/sqlobject/firebird/*",
+                        "../docs/html/_modules/sqlobject/sybase/*",
+                        "../docs/html/_modules/sqlobject/sqlite/*",
+                        "../docs/html/_modules/sqlobject/include/*",
+                        "../docs/html/_modules/sqlobject/include/tests/*",
+                        "../docs/html/_modules/pydispatch/*",
+                        "../docs/html/_modules/_pytest/*",
+                        "../docs/html/api/*",
+                        "../docs/html/_static/*",
                     ],
                     "sqlobject.maxdb": ["readme.txt"],
                     },
+      requires=['FormEncode', 'PyDispatcher'],
       **kw
       )
 
